@@ -28,7 +28,8 @@ $(function () {
     scene.addEventListener("enter-vr", function () {
         inVR = true;
         $(".vive-controls").attr("visible", "true");
-        $("#camera").attr("position", "0 0 0");
+        // MODIFICATION: The following line was commented out to allow the new #player-rig to control the user's position.
+        // $("#camera").attr("position", "0 0 0");
     });
     scene.addEventListener("exit-vr", function () {
         inVR = false;
@@ -74,12 +75,6 @@ $(function () {
         }, 1500);
 
     }
-    
-    // --- SETUP FOR WORLD RE-CENTERING ---
-    // This function will find the controllers and add the button listeners.
-    setupControllerListeners();
-    // ------------------------------------
-
     tick();
 });
 
@@ -304,12 +299,12 @@ function shapeEnter(i) {
             "z": -1
         };
     }
-    $("#shape" + i).attr("position", start.x + " " + start.y + " " + start.z);
+    $("#shape" + i)[0].object3D["position"].set(start.x , + start.y , start.z);
     $(start).animate(mid, {
         duration: 400,
         easing: "easeOutQuad",
         step: function () {
-            $("#shape" + i).attr("position", this.x + " " + this.y + " " + this.z);
+            $("#shape" + i)[0].object3D["position"].set(this.x ,  this.y , this.z);
         }
     }).animate({
         "x": pos.x,
@@ -319,7 +314,8 @@ function shapeEnter(i) {
         duration: 800,
         easing: "easeInQuad",
         step: function () {
-            $("#shape" + i).attr("position", this.x + " " + this.y + " " + this.z);
+      	   $("#shape" + i)[0].object3D["position"].set(this.x ,  this.y , this.z); 
+	   //$("#shape" + i).attr("position", this.x + " " + this.y + " " + this.z);
         }
     });
     setTimeout(function () {
@@ -630,9 +626,9 @@ function loadHelpTextFromCode(code) {
         }
     }
     if (index > -1) {
-        makeHelpText(tutorial[index]);
+        makeHelpText(index);
     } else {
-        makeHelpText();
+        makeHelpText(-1);
     }
 }
 
@@ -692,14 +688,13 @@ function loadTutorial() {
             //loadLevel(1);
             //loadLevelFromCode("1-1");
         }
-  console.log(tutorial)
     });
 }
 
-function makeHelpText(tutorial) {
+function makeHelpText(index) {
     $("#tutorial").empty();
-    if (tutorial) {
-        helptext = tutorial.lines;
+    if (index > -1) {
+        helptext = tutorial[index].lines;
         for (var i = 0; i < helptext.length; i++) {
             var help = helptext[i];
             // Make box
@@ -724,8 +719,7 @@ function makeHelpText(tutorial) {
 }
 
 function playGameIntro() {
-    // Exit lever'
-    makeHelpText(tutorial[0])
+    // Exit lever
     $({
         r: 0
     }).animate({
@@ -1683,95 +1677,109 @@ function pickFromList(array, count) {
     return picked;
 }
 
-// =================================================================
-// ===== NEW CODE FOR WORLD RE-CENTERING ===========================
-// =================================================================
-
-// This object will keep track of the button states.
-const buttonState = { a: false, b: false, x: false, y: false };
+// =================================================================================
+// ===== NEW COMPONENTS ADDED FOR CONTROLLER INPUT AND WORLD RECENTERING =========
+// =================================================================================
 
 /**
- * Finds the controller entities and attaches listeners for the A, B, X, and Y buttons.
+ * Listens for individual A, B, X, and Y button presses.
+ * Attach this to your controller entities in the HTML file.
+ * e.g., <a-entity id="right-hand" ... button-listener></a-entity>
  */
-function setupControllerListeners() {
-    // Selectors for Quest controllers.
-    const rightHand = document.querySelector('[oculus-touch-controls="hand: right"]');
-    const leftHand = document.querySelector('[oculus-touch-controls="hand: left"]');
+AFRAME.registerComponent('button-listener', {
+  init: function () {
+    // --- Right Controller (A and B buttons) ---
+    // Make sure your right controller has id="right-hand" in the HTML
+    var rightHand = document.querySelector('#right-hand'); 
+    if (rightHand) {
+      rightHand.addEventListener('abuttondown', function (evt) {
+        console.log("A button pressed");
+        // TODO: Add your function for the 'A' button here
+      });
 
-    // The controllers might not be immediately available. If not, we'll try again.
-    if (!leftHand || !rightHand) {
-        setTimeout(setupControllerListeners, 1000);
-        return;
+      rightHand.addEventListener('bbuttondown', function (evt) {
+        console.log("B button pressed");
+        // TODO: Add your function for the 'B' button here
+      });
     }
 
-    console.log("Controllers found. Setting up re-center listeners...");
+    // --- Left Controller (X and Y buttons) ---
+    // Make sure your left controller has id="left-hand" in the HTML
+    var leftHand = document.querySelector('#left-hand'); 
+    if (leftHand) {
+      leftHand.addEventListener('xbuttondown', function (evt) {
+        console.log("X button pressed");
+        // TODO: Add your function for the 'X' button here
+      });
 
-    // Right Hand Listeners (A and B buttons)
-    rightHand.addEventListener('abuttondown', () => { buttonState.a = true; checkRecenter(); });
-    rightHand.addEventListener('abuttonup', () => { buttonState.a = false; });
-    rightHand.addEventListener('bbuttondown', () => { buttonState.b = true; checkRecenter(); });
-    rightHand.addEventListener('bbuttonup', () => { buttonState.b = false; });
+      leftHand.addEventListener('ybuttondown', function (evt) {
+        console.log("Y button pressed");
+        // TODO: Add your function for the 'Y' button here
+      });
+    }
+  }
+});
 
-    // Left Hand Listeners (X and Y buttons)
-    leftHand.addEventListener('xbuttondown', () => { buttonState.x = true; checkRecenter(); });
-    leftHand.addEventListener('xbuttonup', () => { buttonState.x = false; });
-    leftHand.addEventListener('ybuttondown', () => { buttonState.y = true; checkRecenter(); });
-    leftHand.addEventListener('ybuttonup', () => { buttonState.y = false; });
-}
 
 /**
- * Checks if all four buttons are held down. If so, it triggers the world re-center.
+ * Manages the recentering logic.
+ * Attach this to your <a-scene> element in the HTML file.
+ * e.g., <a-scene recenter-manager>
  */
-function checkRecenter() {
-    if (buttonState.a && buttonState.b && buttonState.x && buttonState.y) {
-        console.log("All buttons pressed! Re-centering world.");
-        recenterWorld();
-    }
-}
-
-/**
- * This is the core function. It repositions and reorients the entire world
- * to align with the player's current position and view direction.
- */
-function recenterWorld() {
-    // IMPORTANT: This requires you to have an <a-entity id="world"> wrapping your scene objects.
-    const world = document.querySelector('#world');
-    const headset = document.querySelector('#camera'); // The camera entity
-
-    if (!world || !headset) {
-        console.error("Could not find '#world' or '#camera' entity. Please check your HTML structure.");
-        return;
-    }
-
-    // 1. Get the headset's current world position.
-    // We use getWorldPosition to get the true position even if the camera is nested.
-    const headsetPosition = new THREE.Vector3();
-    headset.object3D.getWorldPosition(headsetPosition);
-
-    // 2. Get the headset's current Y-axis rotation.
-    const headsetRotation = headset.getAttribute('rotation');
-
-    // 3. Get the world's current rotation to apply the new rotation relative to it.
-    const worldRotation = world.getAttribute('rotation');
-
-    // 4. Calculate the new world transform.
-    // We want to align the world's Y rotation with the headset's current Y rotation.
-    // The position is offset by the negative of the headset's position.
+AFRAME.registerComponent('recenter-manager', {
+  init: function () {
+    this.buttonStates = { a: false, b: false, x: false, y: false };
     
-    // Set the world's new rotation
-    world.setAttribute('rotation', {
-        x: 0, // Usually you don't want to tilt the whole world.
-        y: (worldRotation ? worldRotation.y : 0) + headsetRotation.y,
+    // These entities must exist in your HTML with these IDs
+    this.playerRig = document.querySelector('#player-rig');
+    this.worldContainer = document.querySelector('#world-container');
+    this.camera = document.querySelector('#camera');
+
+    const leftHand = document.querySelector('#left-hand');
+    const rightHand = document.querySelector('#right-hand');
+
+    if (!leftHand || !rightHand || !this.playerRig || !this.worldContainer || !this.camera) {
+        console.error("Recenter Manager: One or more required entities (#player-rig, #world-container, #camera, #left-hand, #right-hand) are missing from the scene.");
+        return;
+    }
+
+    // Listen for button down events to set state and check for recenter
+    rightHand.addEventListener('abuttondown', () => { this.buttonStates.a = true; this.checkRecenter(); });
+    rightHand.addEventListener('bbuttondown', () => { this.buttonStates.b = true; this.checkRecenter(); });
+    leftHand.addEventListener('xbuttondown', () => { this.buttonStates.x = true; this.checkRecenter(); });
+    leftHand.addEventListener('ybuttondown', () => { this.buttonStates.y = true; this.checkRecenter(); });
+
+    // Listen for button up events to reset state
+    rightHand.addEventListener('abuttonup', () => { this.buttonStates.a = false; });
+    rightHand.addEventListener('bbuttonup', () => { this.buttonStates.b = false; });
+    leftHand.addEventListener('xbuttonup', () => { this.buttonStates.x = false; });
+    leftHand.addEventListener('ybuttonup', () => { this.buttonStates.y = false; });
+  },
+
+  checkRecenter: function () {
+    // Check if all four buttons are currently held down
+    if (this.buttonStates.a && this.buttonStates.b && this.buttonStates.x && this.buttonStates.y) {
+      console.log("Recenter Triggered!");
+      
+      // 1. Reset the player rig's position to the world origin (0, 0, 0)
+      this.playerRig.setAttribute('position', '0 0 0');
+      
+      // 2. Reorient the world to match the player's current view
+      // Get the camera's current rotation (only the yaw/Y-axis matters for this)
+      const cameraRotation = new THREE.Euler().setFromQuaternion(this.camera.object3D.quaternion, 'YXZ');
+      
+      // Get the world's current rotation
+      const worldRotationY = this.worldContainer.object3D.rotation.y;
+      
+      // Calculate the new world rotation by subtracting the camera's current yaw.
+      // This makes the direction the camera is facing the new "forward" (0 degrees) for the world.
+      const newWorldRotationY = worldRotationY - cameraRotation.y;
+      
+      this.worldContainer.setAttribute('rotation', {
+        x: 0,
+        y: THREE.MathUtils.radToDeg(newWorldRotationY),
         z: 0
-    });
-
-    // Set the world's new position.
-    // We set y to 0 to prevent the floor from moving up or down.
-    world.setAttribute('position', {
-        x: -headsetPosition.x,
-        y: 0, 
-        z: -headsetPosition.z
-    });
-
-    console.log("World re-centered to user's position and orientation.");
-}
+      });
+    }
+  }
+});
