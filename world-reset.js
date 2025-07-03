@@ -24,6 +24,7 @@ AFRAME.registerComponent('world-reset', {
    * We use it to set up initial state and event listeners.
    */
   init: function () {
+    console.log('world-reset component initialized on:', this.el);
     // This object will track the current state of each button (true if pressed, false if not).
     this.buttonState = {
       a: false,
@@ -37,6 +38,11 @@ AFRAME.registerComponent('world-reset', {
     this.onButtonDown = this.onButtonDown.bind(this);
     this.onButtonUp = this.onButtonUp.bind(this);
     this.checkCombination = this.checkCombination.bind(this);
+
+    // --- DEBUGGING: Add a generic listener to see if any button events are firing ---
+    this.el.addEventListener('buttondown', (e) => { 
+      console.log('Generic buttondown event detected:', e.detail.id); 
+    });
 
     // Add event listeners to the controller entity that this component is attached to.
     // We listen for both 'down' and 'up' events for each of the four face buttons.
@@ -56,6 +62,7 @@ AFRAME.registerComponent('world-reset', {
    * @param {string} button - The name of the button that was pressed (e.g., 'a', 'b').
    */
   onButtonDown: function (button) {
+    console.log(`Button down: ${button}`);
     this.buttonState[button] = true;
     this.checkCombination();
   },
@@ -65,6 +72,7 @@ AFRAME.registerComponent('world-reset', {
    * @param {string} button - The name of the button that was released.
    */
   onButtonUp: function (button) {
+    console.log(`Button up: ${button}`);
     this.buttonState[button] = false;
   },
 
@@ -73,6 +81,9 @@ AFRAME.registerComponent('world-reset', {
    */
   checkCombination: function () {
     const { a, b, x, y } = this.buttonState;
+    
+    // --- DEBUGGING: Log the current state of all buttons ---
+    console.log('Checking combination. Current State:', JSON.stringify(this.buttonState));
 
     // If all four buttons are currently held down, proceed with the reset logic.
     if (a && b && x && y) {
